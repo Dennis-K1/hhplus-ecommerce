@@ -1,0 +1,124 @@
+// ========================================
+// 이커머스 서비스 ERD - DBML for dbdiagram.io
+// ========================================
+
+Table user {
+  user_id bigint [pk, increment, note: '사용자 ID']
+  point decimal(15,2) [not null, default: 0, note: '포인트 잔액']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '생성일시']
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '수정일시']
+
+  Note: '사용자'
+}
+
+Table product {
+  product_id bigint [pk, increment, note: '상품 ID']
+  product_name varchar(200) [not null, note: '상품명']
+  price int [not null, note: '가격']
+  stock_quantity int [not null, default: 0, note: '재고 수량']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '생성일시']
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '수정일시']
+
+  Indexes {
+    product_name [name: 'idx_product_name']
+  }
+
+  Note: '상품'
+}
+
+Table cart_item {
+  cart_item_id bigint [pk, increment, note: '장바구니 항목 ID']
+  user_id bigint [not null, note: '사용자 ID']
+  product_id bigint [not null, note: '상품 ID']
+  quantity int [not null, note: '수량']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '생성일시']
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '수정일시']
+
+  Indexes {
+    (user_id, product_id) [unique, name: 'uk_user_product']
+    user_id [name: 'idx_user_id']
+  }
+
+  Note: '장바구니 항목'
+}
+
+Table coupon {
+  coupon_id bigint [pk, increment, note: '쿠폰 ID']
+  discount_amount decimal(15,2) [not null, note: '할인 금액']
+  issue_quantity int [not null, note: '발급 수량']
+  issued_quantity int [not null, default: 0, note: '발급된 수량']
+  valid_from datetime [not null, note: '유효 시작일']
+  valid_to datetime [not null, note: '유효 종료일']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '생성일시']
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '수정일시']
+
+  Note: '쿠폰'
+}
+
+Table order {
+  order_id bigint [pk, increment, note: '주문 ID']
+  user_id bigint [not null, note: '사용자 ID']
+  order_status varchar(20) [not null, note: '주문 상태 (PENDING, COMPLETED, CANCELLED)']
+  total_amount decimal(15,2) [not null, note: '총 주문 금액']
+  discount_amount decimal(15,2) [not null, default: 0, note: '할인 금액']
+  used_coupon_id bigint [null, note: '사용한 쿠폰 ID']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '생성일시']
+  updated_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '수정일시']
+
+  Indexes {
+    (user_id, created_at) [name: 'idx_user_created']
+    (created_at, order_status) [name: 'idx_created_status']
+  }
+
+  Note: '주문'
+}
+
+Table order_item {
+  order_item_id bigint [pk, increment, note: '주문 항목 ID']
+  order_id bigint [not null, note: '주문 ID']
+  product_id bigint [not null, note: '상품 ID']
+  quantity int [not null, note: '수량']
+  price int [not null, note: '상품 가격 (주문 시점)']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '생성일시']
+
+  Indexes {
+    order_id [name: 'idx_order_id']
+  }
+
+  Note: '주문 항목'
+}
+
+Table user_coupon {
+  user_coupon_id bigint [pk, increment, note: '사용자 쿠폰 ID']
+  user_id bigint [not null, note: '사용자 ID']
+  coupon_id bigint [not null, note: '쿠폰 ID']
+  order_id bigint [null, note: '사용한 주문 ID']
+  is_used boolean [not null, default: false, note: '사용 여부']
+  issued_at datetime [not null, note: '발급일시']
+  used_at datetime [null, note: '사용일시']
+  expired_at datetime [not null, note: '만료일시']
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`, note: '생성일시']
+
+  Indexes {
+    (user_id, is_used) [name: 'idx_user_used']
+  }
+
+  Note: '사용자 쿠폰'
+}
+
+// ========================================
+// Relationships
+// ========================================
+
+Ref: cart_item.user_id > user.user_id
+Ref: cart_item.product_id > product.product_id
+
+Ref: order.user_id > user.user_id
+Ref: order.used_coupon_id > user_coupon.user_coupon_id
+
+Ref: order_item.order_id > order.order_id
+Ref: order_item.product_id > product.product_id
+
+Ref: user_coupon.user_id > user.user_id
+Ref: user_coupon.coupon_id > coupon.coupon_id
+Ref: user_coupon.order_id > order.order_id

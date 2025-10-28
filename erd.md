@@ -27,7 +27,6 @@ ORDER (주문)
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
 | user_id | BIGINT | PK, AUTO_INCREMENT | 사용자 ID |
-| user_name | VARCHAR(100) | NOT NULL | 사용자명 |
 | point | DECIMAL(15,2) | NOT NULL, DEFAULT 0 | 포인트 잔액 |
 | created_at | DATETIME | NOT NULL | 생성일시 |
 | updated_at | DATETIME | NOT NULL | 수정일시 |
@@ -88,6 +87,7 @@ ORDER (주문)
 | order_id | BIGINT | NOT NULL | 주문 ID |
 | product_id | BIGINT | NOT NULL | 상품 ID |
 | quantity | INT | NOT NULL | 수량 |
+| price | INT | NOT NULL | 상품 가격 (주문 시점) |
 | created_at | DATETIME | NOT NULL | 생성일시 |
 
 **INDEX**: `idx_order_id` (order_id)
@@ -98,7 +98,6 @@ ORDER (주문)
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
 | coupon_id | BIGINT | PK, AUTO_INCREMENT | 쿠폰 ID |
-| coupon_name | VARCHAR(100) | NOT NULL | 쿠폰명 |
 | discount_amount | DECIMAL(15,2) | NOT NULL | 할인 금액 |
 | issue_quantity | INT | NOT NULL | 발급 수량 |
 | issued_quantity | INT | NOT NULL, DEFAULT 0 | 발급된 수량 |
