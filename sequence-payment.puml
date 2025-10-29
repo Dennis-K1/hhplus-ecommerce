@@ -1,0 +1,112 @@
+@startuml 잔액_조회
+title 4.1 잔액 조회
+
+actor Client
+participant PaymentController
+participant PaymentService
+database DB
+
+Client -> PaymentController: GET /api/users/{userId}/balance
+PaymentController -> PaymentService: getBalance()
+PaymentService -> DB: findById()
+DB --> PaymentService: User
+
+alt 사용자 없음
+    PaymentService --> Client: 404 USER_NOT_FOUND
+else 사용자 존재
+    PaymentService --> PaymentController: BalanceResponse
+    PaymentController --> Client: 200 OK
+end
+
+@enduml
+
+@startuml 잔액_충전
+title 4.2 잔액 충전
+
+actor Client
+participant PaymentController
+participant PaymentService
+database DB
+
+Client -> PaymentController: POST /api/users/{userId}/balance
+PaymentController -> PaymentService: chargeBalance()
+PaymentService -> DB: findById()
+DB --> PaymentService: User
+
+alt 사용자 없음
+    PaymentService --> Client: 404 USER_NOT_FOUND
+else 사용자 존재
+    PaymentService -> DB: update balance (동시성 제어)
+    note right: 낙관적 락 or 비관적 락
+    DB --> PaymentService: 잔액 증가 완료
+    PaymentService --> PaymentController: BalanceResponse
+    PaymentController --> Client: 200 OK
+end
+
+@enduml
+
+@startuml 결제_실행
+title 4.3 결제 실행
+
+actor Client
+participant PaymentController
+participant PaymentService
+participant OrderService
+participant CouponService
+participant StockService
+participant ExternalService
+database DB
+
+Client -> PaymentController: POST /api/payments\n{orderId, userId, userCouponId?}
+PaymentController -> PaymentService: executePayment()
+PaymentService -> OrderService: getOrder()
+OrderService -> DB: findById()
+DB --> OrderService: Order
+
+alt 주문 상태 검증 실패
+    OrderService --> Client: 404 ORDER_NOT_FOUND\n또는 422 INVALID_ORDER_STATUS
+else 주문 정상 (PENDING)
+    OrderService --> PaymentService: Order
+
+    opt 쿠폰 사용 시
+        PaymentService -> CouponService: validateAndUseCoupon()
+        CouponService -> DB: findById()
+        DB --> CouponService: UserCoupon
+
+        alt 쿠폰 검증 실패
+            CouponService --> Client: 404 USER_COUPON_NOT_FOUND\n또는 422 COUPON_ALREADY_USED\n또는 422 COUPON_EXPIRED
+        else 쿠폰 유효
+            CouponService -> DB: update isUsed
+            DB --> CouponService: 쿠폰 사용 처리
+            CouponService --> PaymentService: discountAmount
+        end
+    end
+
+    PaymentService -> PaymentService: calculateFinalAmount()
+    PaymentService -> DB: findById()
+    DB --> PaymentService: User
+
+    alt 잔액 부족
+        PaymentService -> StockService: restoreStock()
+        StockService -> DB: update stock
+        PaymentService -> OrderService: cancelOrder()
+        OrderService -> DB: update status (CANCELLED)
+        PaymentService --> Client: 422 INSUFFICIENT_BALANCE
+    else 잔액 충분
+        PaymentService -> DB: update balance (동시성 제어)
+        note right: 낙관적 락 or 비관적 락
+        DB --> PaymentService: 잔액 차감 완료
+        PaymentService -> DB: save Payment
+        DB --> PaymentService: Payment
+        PaymentService -> OrderService: completeOrder()
+        OrderService -> DB: update status (COMPLETED)
+        DB --> OrderService: 주문 완료
+        note over PaymentService: 트랜잭션 커밋
+        PaymentService ->> ExternalService: sendOrderData()
+        note right: 비동기, 실패해도 결제 완료
+        PaymentService --> PaymentController: PaymentResponse
+        PaymentController --> Client: 200 OK
+    end
+end
+
+@enduml
