@@ -84,7 +84,7 @@
 
 ---
 
-## 1. 상품 API잘ㄱㄴ메ㄲㄸㅊ
+## 1. 상품 API
 **Endpoint**: `GET /api/products`
 
 **Query Parameters**:
