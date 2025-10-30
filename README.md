@@ -31,6 +31,10 @@
   - [3.1 ERD (Entity Relationship Diagram)](#31-erd-entity-relationship-diagram)
   - [3.2 엔티티 관계도](#32-엔티티-관계도)
   - [3.3 테이블 상세](#33-테이블-상세)
+- [Step 4: Mock 서버 구현](#step-4-mock-서버-구현)
+  - [4.1 Mock Controller 구조](#41-mock-controller-구조)
+  - [4.2 Swagger UI 문서화](#42-swagger-ui-문서화)
+  - [4.3 실행 방법](#43-실행-방법)
 
 ---
 
@@ -319,5 +323,223 @@ ORDER (주문)
 | created_at | DATETIME | NOT NULL | 생성일시 |
 
 **INDEX**: `idx_user_used` (user_id, is_used)
+
+---
+
+## Step 4: Mock 서버 구현
+
+### 4.1 Mock Controller 구조
+
+실제 비즈니스 로직 구현 전, API 명세를 검증하고 프론트엔드 개발을 지원하기 위해 Mock Controller를 구현했습니다.
+
+#### 주요 특징
+- **하드코딩된 응답 데이터**: 실제 DB 조회 없이 고정된 데이터 반환
+- **API 명세 검증**: 요청/응답 구조 및 HTTP 메서드 검증
+- **Swagger 문서화**: OpenAPI 3.0 기반 자동 문서 생성
+
+#### Controller 구조
+
+각 도메인별로 Controller가 분리되어 있습니다:
+
+```
+src/main/java/com/hhplus/ecommerce/
+├── product/
+│   └── ProductController.java      # 상품 API
+├── cart/
+│   └── CartController.java         # 장바구니 API
+├── order/
+│   └── OrderController.java        # 주문 API
+├── payment/
+│   └── PaymentController.java      # 결제 API
+└── coupon/
+    └── CouponController.java       # 쿠폰 API
+```
+
+#### Mock Controller 예시
+
+**상품 목록 조회 예시** (`ProductController.java`):
+
+```java
+@Tag(name = "Product", description = "상품 API")
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+
+    @Operation(summary = "상품 목록 조회", description = "페이징 및 검색 조건으로 상품 목록을 조회합니다")
+    @GetMapping
+    public ApiResponse<ProductListResponse> getProducts(
+            @Parameter(description = "페이지 번호", example = "1")
+            @RequestParam(defaultValue = "1") Integer page,
+            @Parameter(description = "페이지 크기", example = "20")
+            @RequestParam(defaultValue = "20") Integer size,
+            @Parameter(description = "검색어")
+            @RequestParam(required = false) String search) {
+
+        // Mock 데이터 생성
+        List<ProductResponse> products = Arrays.asList(
+                new ProductResponse(1L, "노트북", 1500000, 50,
+                        LocalDateTime.of(2025, 1, 1, 0, 0),
+                        LocalDateTime.of(2025, 1, 1, 0, 0)),
+                new ProductResponse(2L, "마우스", 50000, 200,
+                        LocalDateTime.of(2025, 1, 1, 0, 0),
+                        LocalDateTime.of(2025, 1, 1, 0, 0))
+        );
+
+        PaginationResponse pagination = new PaginationResponse(page, size, 100L, 5);
+        ProductListResponse data = new ProductListResponse(products, pagination);
+
+        return ApiResponse.success(data);
+    }
+}
+```
+
+**공통 응답 구조** (`ApiResponse.java`):
+
+```java
+public record ApiResponse<T>(
+        boolean success,
+        T data,
+        String message
+) {
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>(true, data, null);
+    }
+
+    public static <T> ApiResponse<T> success(T data, String message) {
+        return new ApiResponse<>(true, data, message);
+    }
+}
+```
+
+---
+
+### 4.2 Swagger UI 문서화
+
+**SpringDoc OpenAPI**를 사용하여 API 문서를 자동 생성합니다.
+
+#### 의존성 설정 (`build.gradle`)
+
+```gradle
+dependencies {
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+}
+```
+
+#### OpenAPI 설정 (`OpenApiConfig.java`)
+
+```java
+@Configuration
+public class OpenApiConfig {
+
+    @Bean
+    public OpenAPI openAPI() {
+        return new OpenAPI()
+                .info(new Info()
+                        .title("HH Plus E-commerce API")
+                        .description("이커머스 플랫폼 API 문서")
+                        .version("v1.0.0")
+                        .contact(new Contact()
+                                .name("HH Plus")
+                                .email("support@hhplus.com")))
+                .servers(List.of(
+                        new Server()
+                                .url("http://localhost:8080")
+                                .description("Local Server")
+                ));
+    }
+}
+```
+
+#### Swagger 어노테이션
+
+각 API에는 다음과 같은 어노테이션을 사용합니다:
+
+- `@Tag`: Controller 레벨의 그룹 정의
+- `@Operation`: API 엔드포인트 설명
+- `@Parameter`: 파라미터 설명 및 예시 값
+
+#### Swagger UI 접근
+
+애플리케이션 실행 후 다음 URL로 접근:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+**주요 기능**:
+- 📋 **API 목록**: 도메인별로 그룹화된 API 목록
+- 🔍 **API 테스트**: 브라우저에서 직접 API 요청 테스트
+- 📝 **요청/응답 스키마**: 자동 생성된 데이터 구조 문서
+- 📥 **OpenAPI Spec**: JSON 형식의 API 명세 다운로드
+
+![Swagger UI 예시](https://raw.githubusercontent.com/springdoc/springdoc-openapi/master/images/swagger-ui.png)
+
+**OpenAPI JSON 문서**:
+```
+http://localhost:8080/api-docs
+```
+
+---
+
+### 4.3 실행 방법
+
+#### 1. 프로젝트 빌드
+
+```bash
+./gradlew clean build
+```
+
+#### 2. 애플리케이션 실행
+
+```bash
+./gradlew bootRun
+```
+
+또는
+
+```bash
+java -jar build/libs/hhplus-ecommerce-0.0.1-SNAPSHOT.jar
+```
+
+#### 3. 서버 확인
+
+애플리케이션이 정상적으로 실행되면:
+
+```
+Started EcommerceApplication in X.XXX seconds
+```
+
+#### 4. Swagger UI 접속
+
+브라우저에서 다음 URL로 접속:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+#### 5. API 테스트
+
+Swagger UI에서 각 API를 선택하고 "Try it out" 버튼을 클릭하여 테스트할 수 있습니다.
+
+**예시: 상품 목록 조회**
+1. `Product` 태그 클릭
+2. `GET /api/products` 선택
+3. "Try it out" 클릭
+4. 파라미터 입력 (선택사항)
+5. "Execute" 클릭
+6. 응답 확인
+
+#### 주요 엔드포인트
+
+| 도메인 | 엔드포인트 | 설명 |
+|--------|------------|------|
+| 상품 | `GET /api/products` | 상품 목록 조회 |
+| 상품 | `GET /api/products/{productId}` | 상품 상세 조회 |
+| 상품 | `GET /api/products/popular` | 인기 상품 조회 |
+| 장바구니 | `GET /api/users/{userId}/carts` | 장바구니 조회 |
+| 주문 | `POST /api/orders` | 주문 생성 |
+| 결제 | `GET /api/users/{userId}/balance` | 잔액 조회 |
+| 쿠폰 | `POST /api/users/{userId}/coupons` | 쿠폰 발급 |
+
 
 ---
