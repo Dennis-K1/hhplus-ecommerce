@@ -1,0 +1,107 @@
+@startuml 장바구니_조회
+title 2.1 장바구니 조회
+
+actor Client
+participant CartController
+participant CartService
+database DB
+
+Client -> CartController: GET /api/users/{userId}/carts
+CartController -> CartService: getCart()
+CartService -> DB: findByUserId()
+DB --> CartService: List<CartItem>
+CartService --> CartController: CartResponse
+note right: 총 금액 계산 포함
+CartController --> Client: 200 OK
+
+@enduml
+
+@startuml 장바구니_추가
+title 2.2 장바구니 추가
+
+actor Client
+participant CartController
+participant CartService
+participant ProductService
+database DB
+
+Client -> CartController: POST /api/users/{userId}/carts
+CartController -> CartService: addToCart()
+CartService -> ProductService: getProduct()
+ProductService -> DB: findById()
+DB --> ProductService: Product
+
+alt 상품 없음
+    ProductService --> Client: 404 PRODUCT_NOT_FOUND
+else 재고 부족
+    ProductService --> CartService: Product
+    CartService -> CartService: checkStock()
+    CartService --> Client: 422 INSUFFICIENT_STOCK
+else 정상 추가
+    ProductService --> CartService: Product
+    CartService -> DB: save()
+    DB --> CartService: CartItem
+    CartService --> CartController: CartItemResponse
+    CartController --> Client: 201 Created
+end
+
+@enduml
+
+@startuml 장바구니_수량_수정
+title 2.3 장바구니 수량 수정
+
+actor Client
+participant CartController
+participant CartService
+participant ProductService
+database DB
+
+Client -> CartController: PATCH /api/users/{userId}/carts/{cartItemId}
+CartController -> CartService: updateQuantity()
+CartService -> DB: findById()
+DB --> CartService: CartItem
+
+alt 장바구니 항목 없음
+    CartService --> Client: 404 CART_ITEM_NOT_FOUND
+else 장바구니 항목 존재
+    CartService -> ProductService: getProduct()
+    ProductService -> DB: findById()
+    DB --> ProductService: Product
+    ProductService --> CartService: Product
+    CartService -> CartService: checkStock()
+
+    alt 재고 부족
+        CartService --> Client: 422 INSUFFICIENT_STOCK
+    else 재고 충분
+        CartService -> DB: save()
+        DB --> CartService: CartItem
+        CartService --> CartController: CartItemResponse
+        CartController --> Client: 200 OK
+    end
+end
+
+@enduml
+
+@startuml 장바구니_삭제
+title 2.4 장바구니 삭제
+
+actor Client
+participant CartController
+participant CartService
+database DB
+
+Client -> CartController: DELETE /api/users/{userId}/carts/{cartItemId}
+CartController -> CartService: removeFromCart()
+CartService -> DB: findById()
+DB --> CartService: CartItem
+
+alt 장바구니 항목 없음
+    CartService --> Client: 404 CART_ITEM_NOT_FOUND
+else 장바구니 항목 존재
+    CartService -> DB: delete()
+    DB --> CartService: 삭제 완료
+    CartService --> CartController: void
+    CartController --> Client: 200 OK
+end
+
+@enduml

@@ -1,0 +1,28 @@
+@startuml 장바구니_추가_플로우
+title 장바구니 추가 플로우
+
+start
+
+:장바구니 추가 요청;
+
+:상품 정보 확인;
+
+if (상품이 존재하나?) then (아니오)
+  #pink:추가 실패\n(상품 없음);
+  stop
+endif
+
+:재고 수량 확인;
+
+if (재고가 충분한가?) then (아니오)
+  #pink:추가 실패\n(재고 부족);
+  stop
+endif
+
+:장바구니에 상품 추가;
+
+#lightgreen:추가 완료;
+
+stop
+
+@enduml

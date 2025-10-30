@@ -1,0 +1,36 @@
+@startuml 쿠폰_발급_플로우
+title 쿠폰 발급 플로우 (선착순)
+
+start
+
+:쿠폰 발급 요청;
+
+:쿠폰 정보 확인;
+
+if (쿠폰이 존재하나?) then (아니오)
+  #pink:발급 실패\n(쿠폰 없음);
+  stop
+endif
+
+:중복 발급 체크;
+
+if (이미 발급받았나?) then (예)
+  #pink:발급 실패\n(이미 발급받음);
+  stop
+endif
+
+:쿠폰 수량 확인;
+
+if (남은 수량이 있나?) then (아니오)
+  #pink:발급 실패\n(쿠폰 소진);
+  stop
+endif
+
+:쿠폰 수량 차감;
+:사용자에게 쿠폰 발급;
+
+#lightgreen:발급 완료;
+
+stop
+
+@enduml

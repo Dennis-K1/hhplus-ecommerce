@@ -1,0 +1,60 @@
+@startuml 사용자_쿠폰_조회
+title 5.1 사용자 쿠폰 조회
+
+actor Client
+participant CouponController
+participant CouponService
+database DB
+
+Client -> CouponController: GET /api/users/{userId}/coupons
+CouponController -> CouponService: getUserCoupons()
+CouponService -> DB: findByUserId()
+DB --> CouponService: List<UserCoupon>
+
+alt 사용자 없음
+    CouponService --> Client: 404 USER_NOT_FOUND
+else 사용자 존재
+    CouponService --> CouponController: UserCouponListResponse
+    CouponController --> Client: 200 OK
+end
+
+@enduml
+
+@startuml 쿠폰_발급
+title 5.2 쿠폰 발급 (선착순)
+
+actor Client
+participant CouponController
+participant CouponService
+database DB
+
+Client -> CouponController: POST /api/users/{userId}/coupons\n{couponId}
+CouponController -> CouponService: issueCoupon()
+CouponService -> DB: findById()
+DB --> CouponService: Coupon
+
+alt 쿠폰 없음
+    CouponService --> Client: 404 COUPON_NOT_FOUND
+else 쿠폰 존재
+    CouponService -> DB: 중복 발급 체크
+    DB --> CouponService: 발급 여부
+
+    alt 이미 발급받음
+        CouponService --> Client: 409 COUPON_ALREADY_ISSUED
+    else 미발급
+        CouponService -> DB: update quantity (동시성 제어)
+        note right: 비관적 락으로\n선착순 보장
+        DB --> CouponService: 수량 차감 결과
+
+        alt 수량 소진
+            CouponService --> Client: 422 COUPON_SOLD_OUT
+        else 발급 가능
+            CouponService -> DB: save UserCoupon
+            DB --> CouponService: UserCoupon
+            CouponService --> CouponController: UserCouponResponse
+            CouponController --> Client: 201 Created
+        end
+    end
+end
+
+@enduml

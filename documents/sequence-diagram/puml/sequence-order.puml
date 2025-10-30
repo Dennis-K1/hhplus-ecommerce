@@ -1,0 +1,129 @@
+@startuml 주문_생성_장바구니
+title 3.1 주문 생성 (장바구니)
+
+actor Client
+participant OrderController
+participant OrderService
+participant CartService
+participant StockService
+database DB
+
+Client -> OrderController: POST /api/orders\n{userId, orderType: "CART"}
+OrderController -> OrderService: createOrder()
+OrderService -> CartService: getCart()
+CartService -> DB: findByUserId()
+DB --> CartService: List<CartItem>
+
+alt 장바구니 비어있음
+    CartService --> Client: 422 CART_EMPTY
+else 장바구니에 상품 있음
+    CartService --> OrderService: List<CartItem>
+
+    loop 각 장바구니 항목
+        OrderService -> StockService: decreaseStock()
+        StockService -> DB: findById() FOR UPDATE
+        note right: 비관적 락
+        DB --> StockService: Product
+
+        alt 재고 부족
+            StockService --> Client: 422 INSUFFICIENT_STOCK
+        else 재고 충분
+            StockService -> DB: update stock
+            DB --> StockService: 재고 차감 완료
+        end
+    end
+
+    OrderService -> DB: save Order (PENDING)
+    DB --> OrderService: Order
+    OrderService -> DB: save OrderItems
+    DB --> OrderService: OrderItems
+    OrderService -> CartService: clearCart()
+    CartService -> DB: deleteByUserId()
+    DB --> CartService: 삭제 완료
+    OrderService --> OrderController: OrderResponse
+    OrderController --> Client: 201 Created
+end
+
+@enduml
+
+@startuml 주문_생성_즉시구매
+title 3.2 주문 생성 (즉시 구매)
+
+actor Client
+participant OrderController
+participant OrderService
+participant ProductService
+participant StockService
+database DB
+
+Client -> OrderController: POST /api/orders\n{userId, orderType: "DIRECT", productId, quantity}
+OrderController -> OrderService: createOrder()
+OrderService -> ProductService: getProduct()
+ProductService -> DB: findById()
+DB --> ProductService: Product
+
+alt 상품 없음
+    ProductService --> Client: 404 PRODUCT_NOT_FOUND
+else 상품 존재
+    ProductService --> OrderService: Product
+    OrderService -> StockService: decreaseStock()
+    StockService -> DB: findById() FOR UPDATE
+    note right: 비관적 락
+    DB --> StockService: Product
+
+    alt 재고 부족
+        StockService --> Client: 422 INSUFFICIENT_STOCK
+    else 재고 충분
+        StockService -> DB: update stock
+        DB --> StockService: 재고 차감 완료
+        OrderService -> DB: save Order (PENDING)
+        DB --> OrderService: Order
+        OrderService -> DB: save OrderItem
+        DB --> OrderService: OrderItem
+        OrderService --> OrderController: OrderResponse
+        OrderController --> Client: 201 Created
+    end
+end
+
+@enduml
+
+@startuml 주문_상세_조회
+title 3.3 주문 상세 조회
+
+actor Client
+participant OrderController
+participant OrderService
+database DB
+
+Client -> OrderController: GET /api/orders/{orderId}
+OrderController -> OrderService: getOrder()
+OrderService -> DB: findById()
+DB --> OrderService: Order
+
+alt 주문 없음
+    OrderService --> Client: 404 ORDER_NOT_FOUND
+else 주문 존재
+    OrderService --> OrderController: OrderResponse
+    OrderController --> Client: 200 OK
+end
+
+@enduml
+
+@startuml 주문_목록_조회
+title 3.4 주문 목록 조회
+
+actor Client
+participant OrderController
+participant OrderService
+database DB
+
+Client -> OrderController: GET /api/orders?userId&page&size
+OrderController -> OrderService: getOrders()
+OrderService -> DB: findByUserId()
+DB --> OrderService: List<Order>
+OrderService -> DB: count()
+DB --> OrderService: total
+OrderService --> OrderController: OrderListResponse
+OrderController --> Client: 200 OK
+
+@enduml

@@ -1,0 +1,45 @@
+@startuml 주문_생성_플로우
+title 주문 생성 플로우
+
+start
+
+:주문 요청;
+
+if (주문 방식?) then (장바구니에서 주문)
+  :장바구니 확인;
+
+  if (장바구니가 비어있나?) then (예)
+    #pink:주문 실패\n(장바구니 비어있음);
+    stop
+  endif
+
+  :장바구니 상품 목록 가져오기;
+
+else (즉시 구매)
+  :구매할 상품 확인;
+
+  if (상품이 존재하나?) then (아니오)
+    #pink:주문 실패\n(상품 없음);
+    stop
+  endif
+endif
+
+:각 상품의 재고 확인;
+
+if (재고가 충분한가?) then (아니오)
+  #pink:주문 실패\n(재고 부족);
+  stop
+endif
+
+:재고 차감;
+:주문 생성 (대기 상태);
+
+if (장바구니 주문?) then (예)
+  :장바구니 비우기;
+endif
+
+#lightgreen:주문 완료;
+
+stop
+
+@enduml
