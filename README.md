@@ -203,22 +203,71 @@
 
 ### 3.2 엔티티 관계도
 
+#### 도메인별 엔티티 구조
+
+본 프로젝트의 데이터베이스는 **5개의 주요 도메인**으로 구성되어 있으며, 각 도메인은 명확한 책임을 가집니다.
+
+**1. 사용자 도메인 (User Domain)**
+- `USER`: 사용자 기본 정보 및 포인트 잔액 관리
+- 다른 도메인과의 관계: CART_ITEM (1:N), ORDER (1:N), USER_COUPON (1:N)
+
+**2. 상품 도메인 (Product Domain)**
+- `PRODUCT`: 상품 정보 및 재고 관리
+- 다른 도메인과의 관계: CART_ITEM (1:N), ORDER_ITEM (1:N)
+
+**3. 장바구니 도메인 (Cart Domain)**
+- `CART_ITEM`: 사용자별 장바구니 항목 관리
+- 외래키: user_id (USER), product_id (PRODUCT)
+- 제약조건: UNIQUE(user_id, product_id) - 동일 상품 중복 방지
+
+**4. 주문 도메인 (Order Domain)**
+- `ORDER`: 주문 헤더 정보 (상태, 금액, 쿠폰 사용)
+- `ORDER_ITEM`: 주문별 상품 항목 (수량, 주문 시점 가격)
+- 도메인 내 관계: ORDER → ORDER_ITEM (1:N)
+- 외래키: user_id (USER), product_id (PRODUCT), used_coupon_id (USER_COUPON)
+
+**5. 쿠폰 도메인 (Coupon Domain)**
+- `COUPON`: 쿠폰 마스터 정보 (할인액, 발급 수량, 유효기간)
+- `USER_COUPON`: 사용자별 쿠폰 발급 이력 (사용 여부, 만료일)
+- 도메인 내 관계: COUPON → USER_COUPON (1:N)
+- 외래키: user_id (USER), coupon_id (COUPON), order_id (ORDER)
+
+#### 전체 도메인 관계도
+
 ```
-USER (사용자)
-├── CART_ITEM (1:N)
-├── ORDER (1:N)
-└── USER_COUPON (1:N)
-
-PRODUCT (상품)
-├── CART_ITEM (1:N)
-└── ORDER_ITEM (1:N)
-
-COUPON (쿠폰)
-└── USER_COUPON (1:N)
-
-ORDER (주문)
-└── ORDER_ITEM (1:N)
+┌─────────┐
+│  USER   │
+│ (사용자) │
+└────┬────┘
+     │
+     ├─────────────┐
+     │             │
+     ▼             ▼
+┌─────────┐   ┌──────────┐
+│  CART   │   │  ORDER   │
+│(장바구니)│   │  (주문)   │
+└─────────┘   └──────────┘
+     │             │
+     │             ▼
+     │        ┌──────────────┐
+     │        │  ORDER_ITEM  │
+     │        │  (주문 항목)  │
+     │        └──────────────┘
+     │             │
+     ▼             ▼
+┌──────────┐  ┌──────────┐
+│ PRODUCT  │  │  COUPON  │
+│  (상품)   │  │  (쿠폰)   │
+└──────────┘  └──────────┘
+                    │
+                    ▼
+              ┌─────────────┐
+              │ USER_COUPON │
+              │(사용자 쿠폰) │
+              └─────────────┘
 ```
+
+[📄 상세 ERD 문서](./documents/erd/erd.md)
 
 ---
 
