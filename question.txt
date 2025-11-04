@@ -1,0 +1,82 @@
+은 질문입니다. 두 가지 방식 모두 사용되는데, 각각 장단점이 있습니다:
+
+  1. ErrorCode 기반 (하나의 Exception + ErrorCode)
+
+  throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK);
+  장점:
+  - 예외 클래스 수가 적음 (관리 용이)
+  - ErrorCode만 추가하면 됨
+  - 예외 처리 로직이 단순 (catch BusinessException 하나로)
+
+  단점:
+  - 특정 예외만 잡기 어려움 (ErrorCode로 구분해야 함)
+  - 타입 안정성 낮음
+
+  2. 개별 Exception 클래스
+
+  throw new InsufficientStockException();
+  장점:
+  - 타입 안정성 높음
+  - 특정 예외만 선택적으로 catch 가능
+  - 의도가 명확함
+
+  단점:
+  - 예외 클래스 수가 많아짐
+  - 보일러플레이트 코드 증가
+
+  실무에서는?
+
+  대부분 하이브리드 방식 사용:
+  - 도메인 핵심 예외는 개별 클래스 (InsufficientStockException 등)
+  - 일반적인 검증 실패는 ErrorCode 기반 (InvalidInputException + ErrorCode)
+
+  =-----------------
+
+    ---
+  질문: 도메인 모델에서 원시 타입 vs 래퍼 타입
+
+  상황
+
+  순수 POJO 도메인 모델 작성 중, 숫자 타입 필드 설계
+
+  3가지 옵션 중 어떤 게 나은가?
+
+  1. 전부 원시 타입
+  private final long id;
+  public Product(long id) { this.id = id; }
+  - 장점: NPE 없음, 성능 좋음
+  - 단점: null 검증 불가
+
+  2. 전부 래퍼 타입
+  private final Long id;
+  public Product(Long id) { this.id = id; }
+  - 장점: null 표현 가능
+  - 단점: NPE 가능성
+
+  3. 하이브리드 (생성자 파라미터만 래퍼)
+  private final long id;  // 필드는 원시
+  public Product(Long id) {  // 파라미터는 래퍼
+      if (id == null) throw new Exception();
+      this.id = id;
+  }
+  public long getId() { return id; }  // 반환도 원시
+  - 생성 시: null 검증 가능
+  - 사용 시: NPE 걱정 없음
+
+  질문
+
+  1. 실무에서 주로 사용하는 방식은?
+    - 1, 2, 3 중 어떤 패턴을 더 선호하나요?
+    - 프로젝트 규모나 팀 성향에 따라 달라지나요?
+  2. 장단점 트레이드오프
+    - 하이브리드 방식의 "생성자는 래퍼, 필드/반환은 원시" 패턴이 과도한 설계인가요?
+    - 아니면 null 안정성과 성능을 동시에 잡는 합리적인 선택인가요?
+  3. 일관성 vs 유연성
+    - 프로젝트 전체에서 하나의 방식으로 통일하는 게 좋은가요?
+    - 아니면 상황(필수 필드, 선택 필드)에 따라 혼용해도 괜찮나요?
+  4. 기타 고려사항
+    - JPA 엔티티로 매핑할 때 영향이 있나요?
+    - 테스트 작성 시 차이점이 있나요?
+
+  ---
+  이 정도면 어떤가요?
