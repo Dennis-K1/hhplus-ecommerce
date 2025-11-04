@@ -35,6 +35,10 @@
   - [4.1 Mock Controller 구조](#41-mock-controller-구조)
   - [4.2 Swagger UI 문서화](#42-swagger-ui-문서화)
   - [4.3 실행 방법](#43-실행-방법)
+- [Step 5: 도메인 모델 구현](#step-5-도메인-모델-구현)
+  - [5.1 클린 아키텍처 원칙](#51-클린-아키텍처-원칙)
+  - [5.2 도메인 모델 설계](#52-도메인-모델-설계)
+  - [5.3 비즈니스 로직 구현](#53-비즈니스-로직-구현)
 
 ---
 
@@ -590,5 +594,152 @@ Swagger UI에서 각 API를 선택하고 "Try it out" 버튼을 클릭하여 테
 | 결제 | `GET /api/users/{userId}/balance` | 잔액 조회 |
 | 쿠폰 | `POST /api/users/{userId}/coupons` | 쿠폰 발급 |
 
+---
+
+## Step 5: 도메인 모델 구현
+
+[📄 도메인 모델 상세 문서](./documents/domain-model.md)
+
+### 5.1 클린 아키텍처 원칙
+
+도메인 모델을 **프레임워크와 독립적인 순수 POJO**로 구현했습니다.
+
+#### 핵심 원칙
+- ✅ **비즈니스 로직 캡슐화**: 핵심 규칙을 도메인 모델 내부에 구현
+- ✅ **외부 의존성 제거**: JPA, Spring 등 프레임워크 의존성 없음
+- ✅ **불변성 보장**: final 필드와 명확한 메서드로 상태 관리
+- ✅ **테스트 용이성**: Mock 없이 순수 단위 테스트 가능
+
+#### 패키지 구조
+```
+domain/
+├── product/model/     # 상품 도메인 모델
+├── product/exception/ # 상품 도메인 예외
+├── coupon/model/      # 쿠폰 도메인 모델
+├── coupon/exception/  # 쿠폰 도메인 예외
+├── user/model/        # 사용자 도메인 모델
+├── user/exception/    # 사용자 도메인 예외
+└── order/model/       # 주문 도메인 모델
+    └── order/exception/  # 주문 도메인 예외
+```
+
+---
+
+### 5.2 도메인 모델 설계
+
+#### Product (상품)
+재고 관리 핵심 비즈니스 로직 구현
+
+**주요 메서드:**
+- `decreaseStock(int quantity)` - 재고 차감
+- `increaseStock(int quantity)` - 재고 복구 (주문 취소 시)
+- `hasEnoughStock(int quantity)` - 재고 확인
+- `isOutOfStock()` - 재고 소진 여부
+
+**비즈니스 규칙:**
+- 재고 부족 시 `InsufficientStockException`
+- 재고 소진 시 `OutOfStockException`
+
+---
+
+#### Coupon (쿠폰)
+쿠폰 발급 관리 (수량 제한, 기간 제한)
+
+**주요 메서드:**
+- `hasIssueQuantity()` - 발급 가능 수량 확인
+- `canIssue(LocalDateTime now)` - 발급 가능 여부 (수량 + 기간)
+- `issue(LocalDateTime now)` - 쿠폰 발급 처리
+- `isExpired(LocalDateTime now)` - 발급 기간 만료 여부
+
+**비즈니스 규칙:**
+- 발급 기간 외 `CouponNotIssuablePeriodException`
+- 수량 소진 시 `CouponSoldOutException`
+- 검증 순서: 기간 → 수량
+
+---
+
+#### UserCoupon (사용자 쿠폰)
+쿠폰 사용 관리 (중복 사용 방지, 만료 확인)
+
+**주요 메서드:**
+- `canUse(LocalDateTime now)` - 사용 가능 여부
+- `isExpired(LocalDateTime now)` - 만료 여부
+- `use(long orderId, LocalDateTime now)` - 쿠폰 사용 처리
+
+**비즈니스 규칙:**
+- 이미 사용된 쿠폰 `CouponAlreadyUsedException`
+- 만료된 쿠폰 `CouponExpiredException`
+
+---
+
+#### User (사용자)
+포인트 관리 (충전, 차감)
+
+**주요 메서드:**
+- `chargePoint(int amount)` - 포인트 충전
+- `deductPoint(int amount)` - 포인트 차감
+- `hasEnoughPoint(int amount)` - 잔액 확인
+
+**비즈니스 규칙:**
+- 포인트는 0 이상 (음수 불가)
+- 잔액 부족 시 `InsufficientBalanceException`
+
+---
+
+#### Order (주문)
+주문 생성 및 상태 관리
+
+**주요 메서드:**
+- `applyDiscount(int discountAmount, long usedCouponId)` - 할인 적용
+- `complete()` - 주문 완료 처리
+- `cancel()` - 주문 취소 처리
+- `getFinalAmount()` - 최종 결제 금액 계산
+
+**비즈니스 규칙:**
+- 할인 금액은 총 금액 이하
+- 완료된 주문은 취소 불가
+- 취소된 주문은 완료 불가
+
+---
+
+### 5.3 비즈니스 로직 구현
+
+#### 타입 설계
+모든 숫자 타입은 **원시 타입**으로 통일
+```java
+// 원시 타입 사용
+private final long id;
+private final int price;
+public Product(long id, String name, int price, int stockQuantity)
+```
+
+**이유:**
+- NPE 방지
+- 성능 최적화 (오토박싱 제거)
+- 도메인 객체는 항상 유효한 상태 보장
+
+#### 금액 타입
+한국 원화 기준 → `int` 타입
+- 소수점 없음
+- Integer 범위 충분
+
+#### 예외 처리
+도메인별 예외를 각 패키지 내부에 구성
+```java
+domain/
+  product/exception/
+    - InsufficientStockException.java
+    - OutOfStockException.java
+  coupon/exception/
+    - CouponSoldOutException.java
+    - CouponExpiredException.java
+```
+
+모든 예외는 `BusinessException`을 상속하고 `ErrorCode` 기반으로 동작
+
+#### 검증 규칙
+- **생성자 검증**: 도메인 객체 생성 시 유효성 검증
+- **메서드 검증**: 비즈니스 로직 실행 전 파라미터 검증
+- **불변성**: final 필드 + setter 없음
 
 ---
