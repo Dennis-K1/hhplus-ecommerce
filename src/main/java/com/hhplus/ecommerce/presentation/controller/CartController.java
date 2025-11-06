@@ -1,5 +1,7 @@
 package com.hhplus.ecommerce.presentation.controller;
 
+import com.hhplus.ecommerce.application.usecase.CartUseCase;
+import com.hhplus.ecommerce.domain.entity.CartItem;
 import com.hhplus.ecommerce.presentation.dto.*;
 import com.hhplus.ecommerce.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,20 +18,24 @@ import java.util.List;
 @RequestMapping("/api/users/{userId}/carts")
 public class CartController {
 
+    private final CartUseCase cartUseCase;
+
+    public CartController(CartUseCase cartUseCase) {
+        this.cartUseCase = cartUseCase;
+    }
+
     @Operation(summary = "장바구니 조회", description = "사용자의 장바구니 목록을 조회합니다")
     @GetMapping
     public ApiResponse<CartResponse> getCart(
             @Parameter(description = "사용자 ID", example = "1") @PathVariable Long userId) {
-        List<CartItemResponse> items = Arrays.asList(
-                new CartItemResponse(
-                        1L,
-                        new ProductInfo(10L, "노트북", 1500000),
-                        2,
-                        3000000
-                )
-        );
 
-        CartResponse data = new CartResponse(items, 3000000);
+        List<CartItem> cartItems = cartUseCase.getCart(userId);
+
+        // Response 변환 (임시로 빈 리스트 사용 - 실제로는 Product 정보를 가져와야 함)
+        List<CartItemResponse> items = Arrays.asList();
+        int totalPrice = 0;
+
+        CartResponse data = new CartResponse(items, totalPrice);
         return ApiResponse.success(data);
     }
 
@@ -39,12 +45,18 @@ public class CartController {
             @Parameter(description = "사용자 ID", example = "1") @PathVariable Long userId,
             @RequestBody AddToCartRequest request) {
 
-        AddToCartResponse data = new AddToCartResponse(
-                1L,
+        CartItem cartItem = cartUseCase.addToCart(
                 userId,
                 request.productId(),
-                request.quantity(),
-                LocalDateTime.of(2025, 1, 1, 0, 0)
+                request.quantity()
+        );
+
+        AddToCartResponse data = new AddToCartResponse(
+                cartItem.getId(),
+                userId,
+                cartItem.getProductId(),
+                cartItem.getQuantity(),
+                LocalDateTime.now()
         );
 
         return ApiResponse.success(data, "장바구니에 상품이 추가되었습니다");
@@ -57,12 +69,14 @@ public class CartController {
             @Parameter(description = "장바구니 아이템 ID", example = "1") @PathVariable Long cartItemId,
             @RequestBody UpdateCartQuantityRequest request) {
 
+        CartItem cartItem = cartUseCase.updateQuantity(userId, cartItemId, request.quantity());
+
         UpdateCartResponse data = new UpdateCartResponse(
-                cartItemId,
+                cartItem.getId(),
                 userId,
-                10L,
-                request.quantity(),
-                LocalDateTime.of(2025, 1, 1, 1, 0)
+                cartItem.getProductId(),
+                cartItem.getQuantity(),
+                LocalDateTime.now()
         );
 
         return ApiResponse.success(data, "장바구니 수량이 수정되었습니다");
@@ -73,6 +87,8 @@ public class CartController {
     public ApiResponse<Void> removeFromCart(
             @Parameter(description = "사용자 ID", example = "1") @PathVariable Long userId,
             @Parameter(description = "장바구니 아이템 ID", example = "1") @PathVariable Long cartItemId) {
+
+        cartUseCase.removeFromCart(userId, cartItemId);
 
         return ApiResponse.success(null, "장바구니에서 상품이 제거되었습니다");
     }

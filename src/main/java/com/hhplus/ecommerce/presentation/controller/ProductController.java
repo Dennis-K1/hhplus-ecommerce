@@ -1,6 +1,8 @@
 package com.hhplus.ecommerce.presentation.controller;
 
+import com.hhplus.ecommerce.application.usecase.ProductUseCase;
 import com.hhplus.ecommerce.common.ApiResponse;
+import com.hhplus.ecommerce.domain.entity.Product;
 import com.hhplus.ecommerce.presentation.dto.PaginationResponse;
 import com.hhplus.ecommerce.presentation.dto.ProductListResponse;
 import com.hhplus.ecommerce.presentation.dto.ProductResponse;
@@ -10,13 +12,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Tag(name = "Product", description = "상품 API")
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
+
+    private final ProductUseCase productUseCase;
+
+    public ProductController(ProductUseCase productUseCase) {
+        this.productUseCase = productUseCase;
+    }
 
     @Operation(summary = "상품 목록 조회", description = "페이징 및 검색 조건으로 상품 목록을 조회합니다")
     @GetMapping
@@ -25,17 +33,16 @@ public class ProductController {
             @Parameter(description = "페이지 크기", example = "20") @RequestParam(defaultValue = "20") Integer size,
             @Parameter(description = "검색어") @RequestParam(required = false) String search) {
 
-        List<ProductResponse> products = Arrays.asList(
-                new ProductResponse(1L, "노트북", 1500000, 50,
-                        LocalDateTime.of(2025, 1, 1, 0, 0),
-                        LocalDateTime.of(2025, 1, 1, 0, 0)),
-                new ProductResponse(2L, "마우스", 50000, 200,
-                        LocalDateTime.of(2025, 1, 1, 0, 0),
-                        LocalDateTime.of(2025, 1, 1, 0, 0))
-        );
+        List<Product> products = productUseCase.getProducts(page, size, search);
+        long totalCount = productUseCase.getProductCount(search);
+        int totalPages = (int) Math.ceil((double) totalCount / size);
 
-        PaginationResponse pagination = new PaginationResponse(page, size, 100L, 5);
-        ProductListResponse data = new ProductListResponse(products, pagination);
+        List<ProductResponse> productResponses = products.stream()
+                .map(this::toProductResponse)
+                .collect(Collectors.toList());
+
+        PaginationResponse pagination = new PaginationResponse(page, size, totalCount, totalPages);
+        ProductListResponse data = new ProductListResponse(productResponses, pagination);
 
         return ApiResponse.success(data);
     }
@@ -44,32 +51,35 @@ public class ProductController {
     @GetMapping("/{productId}")
     public ApiResponse<ProductResponse> getProduct(
             @Parameter(description = "상품 ID", example = "1") @PathVariable Long productId) {
-        ProductResponse product = new ProductResponse(
-                productId,
-                "노트북",
-                1500000,
-                50,
-                LocalDateTime.of(2025, 1, 1, 0, 0),
-                LocalDateTime.of(2025, 1, 1, 0, 0)
-        );
 
-        return ApiResponse.success(product);
+        Product product = productUseCase.getProduct(productId);
+        ProductResponse productResponse = toProductResponse(product);
+
+        return ApiResponse.success(productResponse);
     }
 
     @Operation(summary = "인기 상품 조회", description = "최근 3일간 판매량 기준 Top 5 상품을 조회합니다")
     @GetMapping("/popular")
     public ApiResponse<ProductListResponse> getPopularProducts() {
-        List<ProductResponse> products = Arrays.asList(
-                new ProductResponse(1L, "노트북", 1500000, 50,
-                        LocalDateTime.of(2025, 1, 1, 0, 0),
-                        LocalDateTime.of(2025, 1, 1, 0, 0)),
-                new ProductResponse(2L, "마우스", 50000, 200,
-                        LocalDateTime.of(2025, 1, 1, 0, 0),
-                        LocalDateTime.of(2025, 1, 1, 0, 0))
-        );
+        List<Product> products = productUseCase.getTopProducts();
 
-        ProductListResponse data = new ProductListResponse(products, null);
+        List<ProductResponse> productResponses = products.stream()
+                .map(this::toProductResponse)
+                .collect(Collectors.toList());
+
+        ProductListResponse data = new ProductListResponse(productResponses, null);
 
         return ApiResponse.success(data, "최근 3일간 판매량 기준 Top 5");
+    }
+
+    private ProductResponse toProductResponse(Product product) {
+        return new ProductResponse(
+                product.getId(),
+                product.getName(),
+                product.getPrice(),
+                product.getStockQuantity(),
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
     }
 }

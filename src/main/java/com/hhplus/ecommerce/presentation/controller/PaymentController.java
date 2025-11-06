@@ -1,6 +1,8 @@
 package com.hhplus.ecommerce.presentation.controller;
 
+import com.hhplus.ecommerce.application.usecase.PaymentUseCase;
 import com.hhplus.ecommerce.common.ApiResponse;
+import com.hhplus.ecommerce.domain.entity.User;
 import com.hhplus.ecommerce.presentation.dto.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,11 +15,20 @@ import java.time.LocalDateTime;
 @RestController
 public class PaymentController {
 
+    private final PaymentUseCase paymentUseCase;
+
+    public PaymentController(PaymentUseCase paymentUseCase) {
+        this.paymentUseCase = paymentUseCase;
+    }
+
     @Operation(summary = "잔액 조회", description = "사용자의 잔액을 조회합니다")
     @GetMapping("/api/users/{userId}/balance")
     public ApiResponse<BalanceResponse> getBalance(
             @Parameter(description = "사용자 ID", example = "1") @PathVariable Long userId) {
-        BalanceResponse data = new BalanceResponse(userId, 1000000);
+
+        int balance = paymentUseCase.getBalance(userId);
+        BalanceResponse data = new BalanceResponse(userId, balance);
+
         return ApiResponse.success(data);
     }
 
@@ -27,11 +38,14 @@ public class PaymentController {
             @Parameter(description = "사용자 ID", example = "1") @PathVariable Long userId,
             @RequestBody ChargeBalanceRequest request) {
 
+        int beforeBalance = paymentUseCase.getBalance(userId);
+        User user = paymentUseCase.chargeBalance(userId, request.amount());
+
         ChargeBalanceResponse data = new ChargeBalanceResponse(
                 userId,
-                1000000,
+                beforeBalance,
                 request.amount(),
-                1000000 + request.amount()
+                user.getPoint()
         );
 
         return ApiResponse.success(data, "잔액이 충전되었습니다");
@@ -40,18 +54,28 @@ public class PaymentController {
     @Operation(summary = "결제 실행", description = "주문에 대한 결제를 실행합니다")
     @PostMapping("/api/payments")
     public ApiResponse<PaymentResponse> executePayment(@RequestBody ExecutePaymentRequest request) {
-        PaymentResponse data = new PaymentResponse(
-                1L,
-                request.orderId(),
+
+        PaymentUseCase.PaymentResult result = paymentUseCase.executePayment(
                 request.userId(),
-                3000000,
-                500000,
-                2500000,
-                500000,
-                "COMPLETED",
-                LocalDateTime.of(2025, 1, 1, 0, 5)
+                request.orderId()
         );
 
-        return ApiResponse.success(data, "결제가 완료되었습니다");
+        PaymentResponse data = new PaymentResponse(
+                1L,  // paymentId (임시)
+                result.orderId(),
+                result.userId(),
+                result.paymentAmount(),
+                0,  // discount (임시)
+                result.paymentAmount(),
+                result.remainingBalance(),
+                "COMPLETED",
+                LocalDateTime.now()
+        );
+
+        String message = result.dataTransferSuccess()
+                ? "결제가 완료되었습니다"
+                : "결제가 완료되었습니다 (외부 전송은 재시도 예정)";
+
+        return ApiResponse.success(data, message);
     }
 }
