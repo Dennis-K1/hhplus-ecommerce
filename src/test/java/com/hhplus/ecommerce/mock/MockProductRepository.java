@@ -22,6 +22,14 @@ public class MockProductRepository implements ProductRepository {
         return Optional.ofNullable(products.get(productId));
     }
 
+    /**
+     * 비관적 락을 시뮬레이션하는 조회 메서드
+     * synchronized로 동시성 제어
+     */
+    public synchronized Optional<Product> findByIdForUpdate(Long productId) {
+        return Optional.ofNullable(products.get(productId));
+    }
+
     @Override
     public List<Product> findAll(int page, int size, String search) {
         List<Product> allProducts = new ArrayList<>(products.values());

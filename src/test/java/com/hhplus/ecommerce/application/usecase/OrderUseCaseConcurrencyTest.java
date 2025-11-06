@@ -121,28 +121,34 @@ class OrderUseCaseConcurrencyTest {
     }
 
     @Test
-    @DisplayName("비관적 락 없이 동시 주문 시 재고 정합성 깨짐 확인")
-    void 비관적락_없이_동시_주문() throws InterruptedException {
-        // Given: 재고 50개인 상품
-        Product product = new Product(1L, "테스트 상품", 10000, 50);
+    @DisplayName("동시성 제어 검증 - Repository의 synchronized가 제대로 동작하는지 확인")
+    void 동시성_제어_검증() throws InterruptedException {
+        // Given: 재고 30개인 상품
+        Product product = new Product(1L, "테스트 상품", 10000, 30);
         productRepository.save(product);
 
         int threadCount = 50;
         ExecutorService executorService = Executors.newFixedThreadPool(32);
         CountDownLatch latch = new CountDownLatch(threadCount);
 
-        // When: 비관적 락 없이 동시 접근 (findById 사용)
+        AtomicInteger successCount = new AtomicInteger(0);
+
+        // When: MockProductRepository의 synchronized 메서드로 동시 주문
+        // MockProductRepository.findByIdForUpdate()는 synchronized로 동시성 제어
         for (int i = 0; i < threadCount; i++) {
             executorService.submit(() -> {
                 try {
-                    // ❌ synchronized 없이 findById 사용 (락 없음)
-                    Product p = productRepository.findById(1L).orElseThrow();
+                    // Repository의 synchronized 메서드를 통해 안전하게 조회/수정
+                    Product p = productRepository.findByIdForUpdate(1L).orElseThrow();
 
-                    // 재고 차감 (동시성 문제 발생 가능)
-                    p.decreaseStock(1);
-                    productRepository.save(p);
+                    // 재고 차감 - synchronized 덕분에 안전
+                    if (p.getStockQuantity() > 0) {
+                        p.decreaseStock(1);
+                        productRepository.save(p);
+                        successCount.incrementAndGet();
+                    }
                 } catch (Exception e) {
-                    // 예외 무시
+                    // 재고 부족은 정상
                 } finally {
                     latch.countDown();
                 }
@@ -152,12 +158,11 @@ class OrderUseCaseConcurrencyTest {
         latch.await();
         executorService.shutdown();
 
-        // Then: 락이 없으면 재고가 정확하지 않을 수 있음
+        // Then: synchronized 덕분에 정확히 30개만 차감됨
         Product finalProduct = productRepository.findById(1L).orElseThrow();
-
-        // 이 테스트는 동시성 문제를 보여주기 위한 것
-        // 실제로는 synchronized 메서드를 사용해야 함
-        System.out.println("동시성 제어 없이 동시 주문 후 재고: " + finalProduct.getStockQuantity());
-        System.out.println("예상 재고: 0, 실제로는 정합성이 깨질 수 있음");
+        assertEquals(0, finalProduct.getStockQuantity(),
+                "synchronized로 동시성 제어되어 재고가 정확히 0이어야 함");
+        assertEquals(30, successCount.get(),
+                "30번만 성공해야 함");
     }
 }

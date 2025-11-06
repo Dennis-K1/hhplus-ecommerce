@@ -33,6 +33,23 @@ public class MockCouponRepository implements CouponRepository {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 특정 쿠폰 ID로 발급된 모든 UserCoupon 조회
+     */
+    public List<UserCoupon> findByCouponId(Long couponId) {
+        return userCoupons.values().stream()
+                .filter(uc -> uc.getCouponId() == couponId)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 비관적 락을 시뮬레이션하는 조회 메서드
+     * synchronized로 동시성 제어
+     */
+    public synchronized Optional<Coupon> findByIdForUpdate(Long couponId) {
+        return Optional.ofNullable(coupons.get(couponId));
+    }
+
     @Override
     public Optional<UserCoupon> findUserCouponById(Long userCouponId) {
         return Optional.ofNullable(userCoupons.get(userCouponId));

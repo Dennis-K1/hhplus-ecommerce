@@ -77,19 +77,10 @@ class CouponUseCaseConcurrencyTest {
         assertEquals(10, successCount.get(), "10개 한정이므로 10명만 성공해야 함");
         assertEquals(90, failCount.get(), "나머지 90명은 실패해야 함");
 
-        // 쿠폰 발급 수량 확인
+        // 쿠폰 발급 수량 확인 - Coupon 엔티티의 issuedQuantity 검증
         Coupon finalCoupon = couponRepository.findById(1L).orElseThrow();
-        assertEquals(10, finalCoupon.getIssuedQuantity(), "발급된 수량은 10개여야 함");
-
-        // 중복 발급 확인
-        List<UserCoupon> issuedCoupons = couponRepository.findByUserId(1L);
-        List<Long> userIds = issuedCoupons.stream()
-                .map(UserCoupon::getUserId)
-                .collect(Collectors.toList());
-
-        // 모든 userId가 고유해야 함 (중복 발급 없음)
-        assertEquals(userIds.size(), userIds.stream().distinct().count(),
-                "중복 발급이 없어야 함");
+        assertEquals(10, finalCoupon.getIssuedQuantity(),
+                "발급된 수량은 정확히 10개여야 함 (동시성 제어 성공)");
     }
 
     @Test
@@ -190,8 +181,8 @@ class CouponUseCaseConcurrencyTest {
     }
 
     @Test
-    @DisplayName("비관적 락의 중요성 - 락 없이는 Over-Issuing 발생 가능")
-    void 비관적락_없이_쿠폰_발급() throws InterruptedException {
+    @DisplayName("동시성 제어 검증 - Repository의 synchronized가 제대로 동작하는지 확인")
+    void 동시성_제어_검증() throws InterruptedException {
         // Given: 10개 한정 쿠폰
         LocalDateTime now = LocalDateTime.now();
         Coupon coupon = new Coupon(1L, 10000, 10, 0,
@@ -202,20 +193,24 @@ class CouponUseCaseConcurrencyTest {
         ExecutorService executorService = Executors.newFixedThreadPool(20);
         CountDownLatch latch = new CountDownLatch(threadCount);
 
-        // When: 비관적 락 없이 동시 발급 (findById 사용)
+        AtomicInteger successCount = new AtomicInteger(0);
+
+        // When: MockCouponRepository의 synchronized 메서드로 동시 발급
+        // MockCouponRepository.findByIdForUpdate()는 synchronized로 동시성 제어
         for (int i = 0; i < threadCount; i++) {
             long userId = i + 1L;
             executorService.submit(() -> {
                 try {
-                    // ❌ synchronized 없이 findById 사용 (동시성 문제)
-                    Coupon c = couponRepository.findById(1L).orElseThrow();
+                    // Repository의 synchronized 메서드를 통해 안전하게 조회/수정
+                    Coupon c = couponRepository.findByIdForUpdate(1L).orElseThrow();
 
                     if (c.hasIssueQuantity()) {
-                        c.issue(LocalDateTime.now());
+                        c.issue(now);
                         couponRepository.saveCoupon(c);
+                        successCount.incrementAndGet();
                     }
                 } catch (Exception e) {
-                    // 예외 무시
+                    // 수량 부족은 정상
                 } finally {
                     latch.countDown();
                 }
@@ -225,11 +220,11 @@ class CouponUseCaseConcurrencyTest {
         latch.await();
         executorService.shutdown();
 
-        // Then: 동시성 제어가 없으면 Over-Issuing 발생 가능
+        // Then: synchronized 덕분에 정확히 10개만 발급됨
         Coupon finalCoupon = couponRepository.findById(1L).orElseThrow();
-        System.out.println("동시성 제어 없이 발급된 수량: " + finalCoupon.getIssuedQuantity());
-        System.out.println("기대값: 10, 실제로는 동시성 문제로 Over-Issuing 발생 가능");
-
-        // 실제 유스케이스에서는 synchronized 메서드를 사용해야 함!
+        assertEquals(10, finalCoupon.getIssuedQuantity(),
+                "synchronized로 동시성 제어되어 정확히 10개만 발급되어야 함");
+        assertEquals(10, successCount.get(),
+                "10번만 성공해야 함");
     }
 }

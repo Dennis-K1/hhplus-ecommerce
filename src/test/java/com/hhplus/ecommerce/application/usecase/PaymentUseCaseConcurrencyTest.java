@@ -204,12 +204,14 @@ class PaymentUseCaseConcurrencyTest {
         latch.await();
         executorService.shutdown();
 
-        // Then: 최종 잔액이 음수가 아니어야 함
+        // Then: synchronized 덕분에 잔액이 음수가 되지 않고 정합성 유지
         User finalUser = userRepository.findById(1L).orElseThrow();
         assertTrue(finalUser.getPoint() >= 0, "잔액은 음수가 될 수 없음");
+        assertTrue(finalUser.getPoint() <= 500000, "최대 잔액은 500,000원 (충전 총액)");
 
-        System.out.println("최종 잔액: " + finalUser.getPoint());
-        System.out.println("충전 총액: 500,000원 (5만원 * 10)");
-        System.out.println("결제 가능 금액에 따라 차감됨");
+        // 충전 총액(500,000원)에서 결제 성공한 만큼 차감된 금액
+        System.out.println("최종 잔액: " + finalUser.getPoint() + "원");
+        System.out.println("충전 총액: 500,000원 (5만원 * 10번)");
+        System.out.println("synchronized로 동시성 제어되어 잔액 정합성 유지됨");
     }
 }
