@@ -1,7 +1,7 @@
-package com.hhplus.ecommerce.domain.user.model;
+package com.hhplus.ecommerce.domain.entity;
 
 import com.hhplus.ecommerce.common.exception.InvalidInputException;
-import com.hhplus.ecommerce.domain.user.exception.InsufficientBalanceException;
+import com.hhplus.ecommerce.domain.exception.InsufficientBalanceException;
 
 /**
  * 사용자 도메인 모델

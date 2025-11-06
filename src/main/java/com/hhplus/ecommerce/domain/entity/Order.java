@@ -1,7 +1,7 @@
-package com.hhplus.ecommerce.domain.order.model;
+package com.hhplus.ecommerce.domain.entity;
 
 import com.hhplus.ecommerce.common.exception.InvalidInputException;
-import com.hhplus.ecommerce.domain.order.exception.InvalidOrderStatusException;
+import com.hhplus.ecommerce.domain.exception.InvalidOrderStatusException;
 
 /**
  * 주문 도메인 모델

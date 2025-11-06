@@ -1,8 +1,8 @@
-package com.hhplus.ecommerce.domain.coupon.model;
+package com.hhplus.ecommerce.domain.entity;
 
 import com.hhplus.ecommerce.common.exception.InvalidInputException;
-import com.hhplus.ecommerce.domain.coupon.exception.CouponNotIssuablePeriodException;
-import com.hhplus.ecommerce.domain.coupon.exception.CouponSoldOutException;
+import com.hhplus.ecommerce.domain.exception.CouponNotIssuablePeriodException;
+import com.hhplus.ecommerce.domain.exception.CouponSoldOutException;
 
 import java.time.LocalDateTime;
 

@@ -1,4 +1,4 @@
-package com.hhplus.ecommerce.domain.order.model;
+package com.hhplus.ecommerce.domain.entity;
 
 /**
  * 주문 상태 enum

@@ -1,8 +1,8 @@
-package com.hhplus.ecommerce.domain.product.model;
+package com.hhplus.ecommerce.domain.entity;
 
 import com.hhplus.ecommerce.common.exception.InvalidInputException;
-import com.hhplus.ecommerce.domain.product.exception.InsufficientStockException;
-import com.hhplus.ecommerce.domain.product.exception.OutOfStockException;
+import com.hhplus.ecommerce.domain.exception.InsufficientStockException;
+import com.hhplus.ecommerce.domain.exception.OutOfStockException;
 
 /**
  * 상품 도메인 모델
