@@ -35,9 +35,4 @@ public interface ProductRepository {
      * 상품 저장 (재고 업데이트)
      */
     Product save(Product product);
-
-    /**
-     * 비관적 락으로 상품 조회 (동시성 제어)
-     */
-    Optional<Product> findByIdWithLock(Long productId);
 }

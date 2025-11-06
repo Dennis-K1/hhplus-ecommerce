@@ -207,7 +207,7 @@ class CouponUseCaseConcurrencyTest {
             long userId = i + 1L;
             executorService.submit(() -> {
                 try {
-                    // ❌ findByIdWithLock 대신 findById 사용 (동시성 문제)
+                    // ❌ synchronized 없이 findById 사용 (동시성 문제)
                     Coupon c = couponRepository.findById(1L).orElseThrow();
 
                     if (c.hasIssueQuantity()) {
@@ -225,11 +225,11 @@ class CouponUseCaseConcurrencyTest {
         latch.await();
         executorService.shutdown();
 
-        // Then: 비관적 락이 없으면 Over-Issuing 발생 가능
+        // Then: 동시성 제어가 없으면 Over-Issuing 발생 가능
         Coupon finalCoupon = couponRepository.findById(1L).orElseThrow();
-        System.out.println("비관적 락 없이 발급된 수량: " + finalCoupon.getIssuedQuantity());
+        System.out.println("동시성 제어 없이 발급된 수량: " + finalCoupon.getIssuedQuantity());
         System.out.println("기대값: 10, 실제로는 동시성 문제로 Over-Issuing 발생 가능");
 
-        // 실제 유스케이스에서는 findByIdWithLock을 사용해야 함!
+        // 실제 유스케이스에서는 synchronized 메서드를 사용해야 함!
     }
 }

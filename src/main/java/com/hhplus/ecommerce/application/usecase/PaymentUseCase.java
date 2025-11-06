@@ -9,15 +9,15 @@ import com.hhplus.ecommerce.domain.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 결제 유스케이스
  * - 잔액 조회/충전, 결제 처리 비즈니스 로직
  * - 외부 전송 실패가 주문을 막지 않도록 처리
+ * - Mock 환경에서 synchronized로 동시성 제어
+ * - 실제 프로덕션에서는 @Transactional + JPA 비관적 락 사용 필요
  */
 @Service
-@Transactional(readOnly = true)
 public class PaymentUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentUseCase.class);
@@ -41,11 +41,11 @@ public class PaymentUseCase {
 
     /**
      * 잔액 충전
+     * - synchronized로 동시성 제어 (Mock 테스트용)
+     * - 실제 프로덕션에서는 @Transactional + JPA 비관적 락으로 교체 필요
      */
-    @Transactional
-    public User chargeBalance(Long userId, int amount) {
-        // 비관적 락으로 동시성 제어
-        User user = userRepository.findByIdWithLock(userId)
+    public synchronized User chargeBalance(Long userId, int amount) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
         user.chargePoint(amount);
@@ -57,11 +57,12 @@ public class PaymentUseCase {
      * - 주문 금액 차감
      * - 주문 완료 처리
      * - 외부 전송은 비동기로 처리하거나 실패해도 주문은 성공
+     * - synchronized로 동시성 제어 (Mock 테스트용)
+     * - 실제 프로덕션에서는 @Transactional + JPA 비관적 락으로 교체 필요
      */
-    @Transactional
-    public PaymentResult executePayment(Long userId, Long orderId) {
-        // 1. 사용자 및 주문 조회 (비관적 락)
-        User user = userRepository.findByIdWithLock(userId)
+    public synchronized PaymentResult executePayment(Long userId, Long orderId) {
+        // 1. 사용자 및 주문 조회
+        User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
         Order order = orderRepository.findById(orderId)

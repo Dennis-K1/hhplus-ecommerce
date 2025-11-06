@@ -19,9 +19,4 @@ public interface UserRepository {
      * 사용자 저장 (포인트 업데이트)
      */
     User save(User user);
-
-    /**
-     * 비관적 락으로 사용자 조회 (동시성 제어)
-     */
-    Optional<User> findByIdWithLock(Long userId);
 }

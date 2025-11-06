@@ -36,9 +36,4 @@ public interface CouponRepository {
      * 쿠폰 저장 (발급 수량 업데이트)
      */
     Coupon saveCoupon(Coupon coupon);
-
-    /**
-     * 비관적 락으로 쿠폰 조회 (동시성 제어)
-     */
-    Optional<Coupon> findByIdWithLock(Long couponId);
 }

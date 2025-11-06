@@ -5,7 +5,6 @@ import com.hhplus.ecommerce.domain.entity.UserCoupon;
 import com.hhplus.ecommerce.domain.exception.CouponNotFoundException;
 import com.hhplus.ecommerce.domain.repository.CouponRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,9 +12,10 @@ import java.util.List;
 /**
  * 쿠폰 유스케이스
  * - 쿠폰 조회/발급 비즈니스 로직
+ * - Mock 환경에서 synchronized로 동시성 제어
+ * - 실제 프로덕션에서는 @Transactional + JPA 비관적 락 사용 필요
  */
 @Service
-@Transactional(readOnly = true)
 public class CouponUseCase {
 
     private final CouponRepository couponRepository;
@@ -33,12 +33,12 @@ public class CouponUseCase {
 
     /**
      * 쿠폰 발급
-     * - 비관적 락을 사용하여 동시성 제어
+     * - synchronized로 동시성 제어 (Mock 테스트용)
+     * - 실제 프로덕션에서는 @Transactional + JPA 비관적 락으로 교체 필요
      */
-    @Transactional
-    public UserCoupon issueCoupon(Long userId, Long couponId) {
-        // 쿠폰 조회 (비관적 락)
-        Coupon coupon = couponRepository.findByIdWithLock(couponId)
+    public synchronized UserCoupon issueCoupon(Long userId, Long couponId) {
+        // 쿠폰 조회
+        Coupon coupon = couponRepository.findById(couponId)
                 .orElseThrow(CouponNotFoundException::new);
 
         // 쿠폰 발급 처리 (도메인 로직)

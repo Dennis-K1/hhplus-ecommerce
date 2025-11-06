@@ -135,7 +135,7 @@ class OrderUseCaseConcurrencyTest {
         for (int i = 0; i < threadCount; i++) {
             executorService.submit(() -> {
                 try {
-                    // ❌ findByIdWithLock 대신 findById 사용 (락 없음)
+                    // ❌ synchronized 없이 findById 사용 (락 없음)
                     Product p = productRepository.findById(1L).orElseThrow();
 
                     // 재고 차감 (동시성 문제 발생 가능)
@@ -156,8 +156,8 @@ class OrderUseCaseConcurrencyTest {
         Product finalProduct = productRepository.findById(1L).orElseThrow();
 
         // 이 테스트는 동시성 문제를 보여주기 위한 것
-        // 실제로는 비관적 락(findByIdWithLock)을 사용해야 함
-        System.out.println("비관적 락 없이 동시 주문 후 재고: " + finalProduct.getStockQuantity());
+        // 실제로는 synchronized 메서드를 사용해야 함
+        System.out.println("동시성 제어 없이 동시 주문 후 재고: " + finalProduct.getStockQuantity());
         System.out.println("예상 재고: 0, 실제로는 정합성이 깨질 수 있음");
     }
 }
