@@ -3,6 +3,8 @@ package com.hhplus.ecommerce.application.usecase;
 import com.hhplus.ecommerce.domain.entity.Coupon;
 import com.hhplus.ecommerce.domain.entity.UserCoupon;
 import com.hhplus.ecommerce.domain.exception.CouponNotFoundException;
+import com.hhplus.ecommerce.domain.lock.CouponLock;
+import com.hhplus.ecommerce.domain.lock.UserLock;
 import com.hhplus.ecommerce.domain.repository.CouponRepository;
 import org.springframework.stereotype.Service;
 
@@ -36,7 +38,8 @@ public class CouponUseCase {
      * - synchronized로 동시성 제어 (Mock 테스트용)
      * - 실제 프로덕션에서는 @Transactional + JPA 비관적 락으로 교체 필요
      */
-    public synchronized UserCoupon issueCoupon(Long userId, Long couponId) {
+    @CouponLock
+    public UserCoupon issueCoupon(Long userId, Long couponId) {
         // 쿠폰 조회
         Coupon coupon = couponRepository.findById(couponId)
                 .orElseThrow(CouponNotFoundException::new);
