@@ -4,7 +4,6 @@ import com.hhplus.ecommerce.domain.entity.Coupon;
 import com.hhplus.ecommerce.domain.entity.UserCoupon;
 import com.hhplus.ecommerce.domain.exception.CouponNotFoundException;
 import com.hhplus.ecommerce.domain.lock.CouponLock;
-import com.hhplus.ecommerce.domain.lock.UserLock;
 import com.hhplus.ecommerce.domain.repository.CouponRepository;
 import org.springframework.stereotype.Service;
 
